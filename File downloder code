@@ -1,0 +1,125 @@
+import sys
+import requests
+from bs4 import BeautifulSoup
+from PyQt5 import QtWidgets, QtGui, QtCore
+
+class DownloaderWindow(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        
+        # Set up the GUI layout
+        self.setWindowTitle("File Downloader")
+        self.setWindowIcon(QtGui.QIcon("icon.png"))
+        self.resize(600, 400)
+        
+        self.url_label = QtWidgets.QLabel("URL:")
+        self.url_edit = QtWidgets.QLineEdit()
+        self.url_browse_button = QtWidgets.QPushButton("Browse")
+        
+        self.save_label = QtWidgets.QLabel("Save to:")
+        self.save_edit = QtWidgets.QLineEdit()
+        self.save_browse_button = QtWidgets.QPushButton("Browse")
+        
+        self.file_label = QtWidgets.QLabel("File type:")
+        self.file_combo = QtWidgets.QComboBox()
+        self.file_combo.addItems(["PDF", "Word", "Excel", "Other"])
+        
+        self.login_label = QtWidgets.QLabel("Login (optional):")
+        self.username_label = QtWidgets.QLabel("Username:")
+        self.username_edit = QtWidgets.QLineEdit()
+        self.password_label = QtWidgets.QLabel("Password:")
+        self.password_edit = QtWidgets.QLineEdit()
+        
+        self.download_button = QtWidgets.QPushButton("Download")
+        self.download_button.setEnabled(False)
+        
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(self.url_label, 0, 0)
+        layout.addWidget(self.url_edit, 0, 1)
+        layout.addWidget(self.url_browse_button, 0, 2)
+        layout.addWidget(self.save_label, 1, 0)
+        layout.addWidget(self.save_edit, 1, 1)
+        layout.addWidget(self.save_browse_button, 1, 2)
+        layout.addWidget(self.file_label, 2, 0)
+        layout.addWidget(self.file_combo, 2, 1)
+        layout.addWidget(self.login_label, 3, 0)
+        layout.addWidget(self.username_label, 4, 0)
+        layout.addWidget(self.username_edit, 4, 1)
+        layout.addWidget(self.password_label, 5, 0)
+        layout.addWidget(self.password_edit, 5, 1)
+        layout.addWidget(self.download_button, 6, 1, 1, 2)
+        self.setLayout(layout)
+        
+        # Connect signals and slots
+        self.url_browse_button.clicked.connect(self.browse_url)
+        self.save_browse_button.clicked.connect(self.browse_save)
+        self.download_button.clicked.connect(self.download)
+        self.url_edit.textChanged.connect(self.enable_download_button)
+        self.save_edit.textChanged.connect(self.enable_download_button)
+        
+    def browse_url(self):
+        options = QtWidgets.QFileDialog.Options()
+        options |= QtWidgets.QFileDialog.ReadOnly
+        file_name, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select File", "", "All Files (*);;PDF Files (*.pdf);;Word Files (*.doc, *.docx);;Excel Files (*.xls, *.xlsx)", options=options)
+        if file_name:
+            self.url_edit.setText(file_name)
+        
+    def browse_save(self):
+        options = QtWidgets.QFileDialog.Options()
+        options |= QtWidgets.QFileDialog.ReadOnly
+        directory = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory", options=options)
+        if directory:
+            self.save_edit.setText(directory)
+        
+    def enable_download_button(self):
+        if self.url_edit.text() and self.save_edit.text():
+            self.download_button.setEnabled(True)
+        else:
+            self.download_button.setEnabled(False)
+        
+    def download(self):
+        # Get the URL and save path from the GUI
+        url = self.url_edit.text()
+        save_path = self.save_edit.text()
+        file_type = self.file_combo.currentText()
+        
+        # Check if login is required
+        username = self.username_edit.text()
+        password = self.password_edit.text()
+        if username and password:
+            # Create a session with the login credentials
+            session = requests.Session()
+            session.auth = (username, password)
+        else:
+            session = requests
+        
+        try:
+            # Download the file
+            response = session.get(url)
+            response.raise_for_status()
+            
+            # Save the file to the specified location
+            file_name = url.split("/")[-1]
+            if file_type == "Other":
+                save_path = f"{save_path}/{file_name}"
+            else:
+                save_path = f"{save_path}/{file_name}.{file_type.lower()}"
+                
+            with open(save_path, "wb") as f:
+                f.write(response.content)
+                
+            QtWidgets.QMessageBox.information(self, "Success", "File downloaded successfully!")
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", str(e))
+        
+def main():
+    app = QtWidgets.QApplication(sys.argv)
+    window = DownloaderWindow()
+    window.show()
+    sys.exit(app.exec_())
+    
+if __name__ == "__main__":
+    main()
+
+
